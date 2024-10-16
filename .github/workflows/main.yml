@@ -1,0 +1,59 @@
+name: CI Workflow
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["*"]
+
+env:
+  PORT: ${{secrets.PORT}}
+  DB_HOST: ${{secrets.DB_HOST}}
+  DB_PORT: ${{secrets.DB_PORT}}
+  DB_USERNAME: ${{secrets.DB_USERNAME}}
+  DB_PASSWORD: ${{secrets.DB_PASSWORD}}
+  DB_NAME: ${{secrets.DB_NAME}}
+  SENTRY_AUTH_TOKEN: ${{secrets.SENTRY_AUTH_TOKEN}}
+  SENTRY_ENABLED: false
+
+jobs:
+  build:
+    permissions: write-all
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: NPM or Yarn install with caching
+        uses: bahmutov/npm-install@v1.6.0
+
+      - name: Lint & Format
+        run: |
+          npm run lint
+          npm run format
+
+      - name: Build
+        run: npm run build
+
+      - name: Run Tests
+        run: npm run test:cov
+
+      - name: Report LCOV
+        uses: zgosalvez/github-actions-report-lcov@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          coverage-files: ./coverage/lcov.info
+
+      - name: Store coverage folder as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage
+          path: coverage
